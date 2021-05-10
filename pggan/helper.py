@@ -11,7 +11,7 @@ def get_channel_size(max_channels, min_channels):
             channel = 3
 
         else:
-            channel_list.append((channel, int(channel/2)))
-            channel = int(channel/2)
+            channel_list.append((channel, channel//2))
+            channel = channel//2
 
     return channel_list
