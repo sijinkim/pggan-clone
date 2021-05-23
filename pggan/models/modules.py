@@ -82,5 +82,108 @@ class Discriminator(nn.Module):
     def __init__(self) -> None:
         super(Discriminator, self).__init__()
 
-    def forward(self, x):
+        self.conv_blocks = torch.nn.ModuleList([
+            DiscriminatorConvBlock(
+                in_channel=16,
+                out_channel=32,
+                leakiness=0.2,
+            ),
+            DiscriminatorConvBlock(
+                in_channel=32,
+                out_channel=64,
+                leakiness=0.2,
+            ),
+            DiscriminatorConvBlock(
+                in_channel=64,
+                out_channel=128,
+                leakiness=0.2,
+            ),
+            DiscriminatorConvBlock(
+                in_channel=128,
+                out_channel=256,
+                leakiness=0.2,
+            ),
+            DiscriminatorConvBlock(
+                in_channel=256,
+                out_channel=512,
+                leakiness=0.2,
+            ),
+            DiscriminatorConvBlock(
+                in_channel=512,
+                out_channel=512,
+                leakiness=0.2,
+            ),
+            DiscriminatorConvBlock(
+                in_channel=512,
+                out_channel=512,
+                leakiness=0.2,
+            ),
+            DiscriminatorConvBlock(
+                in_channel=512,
+                out_channel=512,
+                leakiness=0.2,
+            ),
+        ])
+        self.minibatch_stddev = MinibatchStdDev()
+
+    def forward(self, x) -> torch.Tensor:
+        return x
+
+
+class DiscriminatorConvBlock(nn.Module):
+    def __init__(
+            self,
+            in_channel:     int,
+            out_channel:    int,
+            leakiness:      float,
+    ) -> None:
+        super(DiscriminatorConvBlock, self).__init__()
+        self.conv_1 = torch.nn.Conv2d(
+            in_channels=in_channel,
+            out_channels=in_channel,
+            kernel_size=(3, 3),
+            stride=(1, 1),
+            padding=(1, 1),
+        )
+        self.conv_2 = torch.nn.Conv2d(
+            in_channels=in_channel,
+            out_channels=out_channel,
+            kernel_size=(3, 3),
+            stride=(1, 1),
+            padding=(1, 1),
+        )
+        self.lrelu = torch.nn.LeakyReLU(leakiness)
+        self.avg_pool = torch.nn.AvgPool2d(
+            kernel_size=(2, 2),
+            stride=(2, 2),
+        )
+
+    def forward(
+            self,
+            x:      torch.Tensor,
+    ) -> torch.Tensor:
+        x = self.conv_1(x)
+        x = self.lrelu(x)
+        x = self.conv_2(x)
+        x = self.lrelu(x)
+        x = self.avg_pool(x)
+        return x
+
+
+class MinibatchStdDev(nn.Module):
+    def __init__(self) -> None:
+        super(MinibatchStdDev, self).__init__()
+
+    def forward(
+            self,
+            x: torch.Tensor
+    ) -> torch.Tensor:
+        estimate = x.std(dim=0).mean()
+
+        estimate = x.new_full(x.size())
+        # We replicate the value
+        # and concatenate it to all spatial locations and over the minibatch,
+        # yielding one additional (constant) feature map.
+
+        # This layer could be inserted anywhere in the discriminator, but we have found it best to insert it towards the end (see Appendix A.1 for details). We experimented with a richer set of statistics, but were not able to improve the variation further. In parallel work, Lin et al. (2017) provide theoretical insights about the benefits of showing multiple images to the discriminator.
         return x
