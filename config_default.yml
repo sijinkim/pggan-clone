@@ -1,0 +1,18 @@
+batch_size: 32
+
+dataset:
+  train:
+  valid:
+
+model:
+  generator:
+  discriminator:
+
+optimizer:
+  method: Adam
+  kwargs:
+    lr: 0.0003
+criterion:
+  method: L1Loss
+  kwargs:
+    
