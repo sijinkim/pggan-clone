@@ -2,6 +2,9 @@ name: Run unittest
 
 on:
   push:
+    branches-ignore:
+      - gh-page
+      - demo_page
 
 jobs:
   test:
