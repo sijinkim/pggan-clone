@@ -1,6 +1,6 @@
 {
   "files": {
-    "main.css": "/pggan-clone/static/css/main.8c8b27cf.chunk.css",
+    "main.css": "/pggan-clone/static/css/main.ce5ab8d4.chunk.css",
     "main.js": "/pggan-clone/static/js/main.e54f0085.chunk.js",
     "main.js.map": "/pggan-clone/static/js/main.e54f0085.chunk.js.map",
     "runtime-main.js": "/pggan-clone/static/js/runtime-main.33083f64.js",
@@ -10,14 +10,14 @@
     "static/js/3.c7d549e9.chunk.js": "/pggan-clone/static/js/3.c7d549e9.chunk.js",
     "static/js/3.c7d549e9.chunk.js.map": "/pggan-clone/static/js/3.c7d549e9.chunk.js.map",
     "index.html": "/pggan-clone/index.html",
-    "static/css/main.8c8b27cf.chunk.css.map": "/pggan-clone/static/css/main.8c8b27cf.chunk.css.map",
+    "static/css/main.ce5ab8d4.chunk.css.map": "/pggan-clone/static/css/main.ce5ab8d4.chunk.css.map",
     "static/js/2.ae014e35.chunk.js.LICENSE.txt": "/pggan-clone/static/js/2.ae014e35.chunk.js.LICENSE.txt",
     "static/media/logo.6ce24c58.svg": "/pggan-clone/static/media/logo.6ce24c58.svg"
   },
   "entrypoints": [
     "static/js/runtime-main.33083f64.js",
     "static/js/2.ae014e35.chunk.js",
-    "static/css/main.8c8b27cf.chunk.css",
+    "static/css/main.ce5ab8d4.chunk.css",
     "static/js/main.e54f0085.chunk.js"
   ]
 }
