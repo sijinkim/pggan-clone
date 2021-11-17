@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from pggan.models import Discriminator
-from pggan.models import MinibatchStdDev
+from pggan.models.modules import MinibatchStdDev
 
 
 class TestDiscriminator(unittest.TestCase):
@@ -18,7 +18,7 @@ class TestDiscriminator(unittest.TestCase):
     def test_minibatch_stddev_forward(self):
         minibatch_stddev = MinibatchStdDev()
 
-        B, C, H, W = 3, 3, 30, 30
+        B, C, H, W = 4, 10, 2, 2
         x = torch.rand(B, C, H, W)
         result = minibatch_stddev(x)
         self.assertEqual(result.size(0), B)
