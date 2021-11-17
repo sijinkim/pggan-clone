@@ -178,12 +178,35 @@ class MinibatchStdDev(nn.Module):
             self,
             x: torch.Tensor
     ) -> torch.Tensor:
-        estimate = x.std(dim=0).mean()
+        '''
+            input:
+                x: torch.Tensor  [B x C x H x W]
 
-        estimate = x.new_full(x.size())
-        # We replicate the value
-        # and concatenate it to all spatial locations and over the minibatch,
+            output:
+                torch.Tensor [B x C+1 x H x W]
+        '''
+        B, C, H, W = x.size()
+        # We first compute the standard deviation for each feature
+        # in each spatial location over the minibatch.
+        additional_feature = x.std(dim=0)  # dim 0 stands for minibatch.
+
+        # We then average these estimates over all features and spatial locations
+        # to arrive at a single value.
+        additional_feature = additional_feature.mean()
+        assert additional_feature.dim() == 0
+
+        # We replicate the value and concatenate it to all spatial locations and over the minibatch,
         # yielding one additional (constant) feature map.
+        additional_feature = additional_feature.new_full(
+            size=(B, 1, H, W),
+            fill_value=additional_feature.data,
+        )
 
-        # This layer could be inserted anywhere in the discriminator, but we have found it best to insert it towards the end (see Appendix A.1 for details). We experimented with a richer set of statistics, but were not able to improve the variation further. In parallel work, Lin et al. (2017) provide theoretical insights about the benefits of showing multiple images to the discriminator.
+        # The concatenated tensor should have a shape like [B, C+1, H, W]
+        x = torch.cat(
+            tensors=(x, additional_feature),
+            dim=1,
+        )
+        assert x.size() == (B, C+1, H, W)
+
         return x
