@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 
@@ -79,95 +80,74 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        leakiness: float = 0.2,
+        maximum_channel: int = 512,
+    ) -> None:
         super(Discriminator, self).__init__()
 
+        self.leakiness = leakiness
+        self.maximum_channel = maximum_channel
+        self.current_input_image_size = 4
+
+        self.fromRGB = self._get_fromRGB(out_channels=512)
+
         self.conv_blocks = torch.nn.ModuleList([
-            DiscriminatorConvBlock(
-                in_channel=16,
-                out_channel=32,
-                leakiness=0.2,
-            ),
-            DiscriminatorConvBlock(
-                in_channel=32,
-                out_channel=64,
-                leakiness=0.2,
-            ),
-            DiscriminatorConvBlock(
-                in_channel=64,
-                out_channel=128,
-                leakiness=0.2,
-            ),
-            DiscriminatorConvBlock(
-                in_channel=128,
-                out_channel=256,
-                leakiness=0.2,
-            ),
-            DiscriminatorConvBlock(
-                in_channel=256,
-                out_channel=512,
-                leakiness=0.2,
-            ),
-            DiscriminatorConvBlock(
-                in_channel=512,
-                out_channel=512,
-                leakiness=0.2,
-            ),
-            DiscriminatorConvBlock(
-                in_channel=512,
-                out_channel=512,
-                leakiness=0.2,
-            ),
-            DiscriminatorConvBlock(
-                in_channel=512,
-                out_channel=512,
-                leakiness=0.2,
-            ),
+            torch.nn.Sequential(OrderedDict([
+                ('conv_1', torch.nn.Conv2d(513, 512, 3, 1, 1)),
+                ('lrelu_1', torch.nn.LeakyReLU(self.leakiness)),
+                ('conv_2', torch.nn.Conv2d(512, 512, 4, 1, 0)),
+                ('lrelu_2', torch.nn.LeakyReLU(self.leakiness)),
+            ])),
         ])
+
         self.minibatch_stddev = MinibatchStdDev()
 
+        self.fc = nn.Linear(
+            in_features=512,
+            out_features=1,
+        )
+
     def forward(self, x) -> torch.Tensor:
+        x = self.fromRGB(x)
+        for block_idx, module in enumerate(self.conv_blocks):
+            if block_idx == len(self.conv_blocks)-1:
+                x = self.minibatch_stddev(x)
+            x = module(x)
+        x = self.fc(x.squeeze())
+
         return x
 
-
-class DiscriminatorConvBlock(nn.Module):
-    def __init__(
-            self,
-            in_channel:     int,
-            out_channel:    int,
-            leakiness:      float,
-    ) -> None:
-        super(DiscriminatorConvBlock, self).__init__()
-        self.conv_1 = torch.nn.Conv2d(
-            in_channels=in_channel,
-            out_channels=in_channel,
-            kernel_size=(3, 3),
-            stride=(1, 1),
-            padding=(1, 1),
-        )
-        self.conv_2 = torch.nn.Conv2d(
-            in_channels=in_channel,
-            out_channels=out_channel,
-            kernel_size=(3, 3),
-            stride=(1, 1),
-            padding=(1, 1),
-        )
-        self.lrelu = torch.nn.LeakyReLU(leakiness)
-        self.avg_pool = torch.nn.AvgPool2d(
-            kernel_size=(2, 2),
-            stride=(2, 2),
+    def _get_fromRGB(self, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(
+                in_channels=3,
+                out_channels=out_channels,
+                kernel_size=1,
+            ),
+            nn.LeakyReLU(negative_slope=0.2)
         )
 
-    def forward(
-            self,
-            x:      torch.Tensor,
-    ) -> torch.Tensor:
-        x = self.conv_1(x)
-        x = self.lrelu(x)
-        x = self.conv_2(x)
-        x = self.lrelu(x)
-        x = self.avg_pool(x)
-        return x
+    def set_input_image_size(self, image_size):
+        if image_size > self.current_input_image_size:
+            # compute in_channels and out_channels
+            in_channels = min(self.maximum_channel, 2**(15-(len(bin(image_size))-2)))
+            out_channels = min(self.maximum_channel, in_channels << 1)
+
+            new_fromRGB = self._get_fromRGB(out_channels=in_channels)
+            new_conv_block = torch.nn.Sequential(OrderedDict([
+                ('conv_1', torch.nn.Conv2d(in_channels, in_channels, 3, 1, 1)),
+                ('lrelu_1', torch.nn.LeakyReLU(self.leakiness)),
+                ('conv_2', torch.nn.Conv2d(in_channels, out_channels, 3, 1, 1)),
+                ('lrelu_2', torch.nn.LeakyReLU(self.leakiness)),
+                ('avg_pooling', torch.nn.AvgPool2d(2)),
+            ]))
+
+            self.fromRGB = new_fromRGB
+            self.conv_blocks.insert(0, new_conv_block)
+        else:
+            pass
 
 
 class MinibatchStdDev(nn.Module):
