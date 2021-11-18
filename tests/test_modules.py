@@ -46,3 +46,24 @@ class TestDiscriminator(unittest.TestCase):
                 self.assertEqual(result.dim(), 2)
                 self.assertEqual(result.size(0), B)
                 self.assertEqual(result.size(1), 1)
+
+            channels = [16, 32, 64, 128, 256, 512]
+            self.assertSetEqual(
+                set([int(fromRGB_key.split('to_')[-1]) for fromRGB_key in discriminator.fromRGBs.keys()]),
+                set(channels)
+            )
+
+    def test_discriminator_fade_in(self):
+        with torch.no_grad():
+            discriminator = Discriminator()
+            input_image_sizes = [8, 16]
+
+            for input_image_size in input_image_sizes:
+
+                B, C, H, W = 2, 3, input_image_size, input_image_size
+                x = torch.rand(B, C, H, W)
+                discriminator.set_input_image_size(input_image_size)
+                result = discriminator(x)
+                self.assertEqual(result.dim(), 2)
+                self.assertEqual(result.size(0), B)
+                self.assertEqual(result.size(1), 1)
