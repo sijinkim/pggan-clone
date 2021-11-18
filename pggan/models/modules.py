@@ -91,7 +91,10 @@ class Discriminator(nn.Module):
         self.maximum_channel = maximum_channel
         self.current_input_image_size = 4
 
-        self.fromRGB = self._get_fromRGB(out_channels=512)
+        self.fromRGBs = {
+            'to_512': self._get_fromRGB(out_channels=512)
+        }
+        self.fade_in_weight = 1  # 1 means that no lower resolution is considerd.
 
         self.conv_blocks = torch.nn.ModuleList([
             torch.nn.Sequential(OrderedDict([
@@ -110,13 +113,23 @@ class Discriminator(nn.Module):
         )
 
     def forward(self, x) -> torch.Tensor:
-        x = self.fromRGB(x)
+
+        if self.fade_in_weight < 1:
+            residual_x = torch.nn.AvgPool2d(2)(x)
+            residual_x = self.fromRGBs[f'to_{x.size(-1) >> 1}'](residual_x)
+            residual_x = residual_x.mul(1-self.fade_in_weight)
+
+        in_channels = self._get_in_channels(x.size(-1))
+        x = self.fromRGBs[f'to_{in_channels}'](x)
         for block_idx, module in enumerate(self.conv_blocks):
+            if block_idx == 1 and self.fade_in_weight < 1:
+                x = x.mul(self.fade_in_weight).add(residual_x)
+
             if block_idx == len(self.conv_blocks)-1:
                 x = self.minibatch_stddev(x)
+
             x = module(x)
         x = self.fc(x.squeeze())
-
         return x
 
     def _get_fromRGB(self, out_channels):
@@ -129,13 +142,18 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(negative_slope=0.2)
         )
 
+    def _get_in_channels(self, resolution):
+        return min(self.maximum_channel, 2**(15-(len(bin(resolution))-2)))
+
     def set_input_image_size(self, image_size):
         if image_size > self.current_input_image_size:
             # compute in_channels and out_channels
-            in_channels = min(self.maximum_channel, 2**(15-(len(bin(image_size))-2)))
+            in_channels = self._get_in_channels(image_size)
             out_channels = min(self.maximum_channel, in_channels << 1)
 
-            new_fromRGB = self._get_fromRGB(out_channels=in_channels)
+            if in_channels not in self.fromRGBs.keys():
+                self.fromRGBs[f'to_{in_channels}'] = self._get_fromRGB(out_channels=in_channels)
+
             new_conv_block = torch.nn.Sequential(OrderedDict([
                 ('conv_1', torch.nn.Conv2d(in_channels, in_channels, 3, 1, 1)),
                 ('lrelu_1', torch.nn.LeakyReLU(self.leakiness)),
@@ -144,7 +162,6 @@ class Discriminator(nn.Module):
                 ('avg_pooling', torch.nn.AvgPool2d(2)),
             ]))
 
-            self.fromRGB = new_fromRGB
             self.conv_blocks.insert(0, new_conv_block)
         else:
             pass
