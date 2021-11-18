@@ -177,9 +177,8 @@ class MinibatchStdDev(nn.Module):
 
         # We replicate the value and concatenate it to all spatial locations and over the minibatch,
         # yielding one additional (constant) feature map.
-        additional_feature = additional_feature.new_full(
+        additional_feature = additional_feature.expand(
             size=(B, 1, H, W),
-            fill_value=additional_feature.data,
         )
 
         # The concatenated tensor should have a shape like [B, C+1, H, W]
