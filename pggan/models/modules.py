@@ -5,78 +5,48 @@ import torch.nn as nn
 
 class Generator(nn.Module):
     def __init__(
-        self
+        self,
+        leakiness: float = 0.2,
+        maximum_channel: int = 512,
+        minimum_channel: int = 16,
     ) -> None:
         super(Generator, self).__init__()
 
-        self.head = nn.Sequential(
-            nn.Conv2d(512, 512, 4, 1, 3),
-            nn.LeakyReLU(),
-            nn.Conv2d(512, 512, 3, 1, 1),
-            nn.LeakyReLU()
-        )  # (512, 4, 4)
+        self.leakiness = leakiness
+        self.maximum_channel = maximum_channel
+        self.minimum_channel = minimum_channel
+        self.current_output_image_size = 4
 
-        self.body = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (512, 8, 8)
-            nn.Conv2d(512, 512, 3, 1, 1),
-            nn.LeakyReLU(),
-            nn.Conv2d(512, 512, 3, 1, 1),
-            nn.LeakyReLU(),
+        self.toRGBs = {
+            'from_512': self._get_toRGB(in_channels=512),
+        }
+        # 1 means that no lower resolution is considerd.
+        self.fade_in_weight = 1
 
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (512, 16, 16)
-            nn.Conv2d(512, 512, 3, 1, 1),
-            nn.LeakyReLU(),
-            nn.Conv2d(512, 512, 3, 1, 1),
-            nn.LeakyReLU(),
+        self.conv_blocks = nn.ModuleList([
+            nn.Sequential(OrderedDict([
+                ('conv_1', nn.Conv2d(512, 512, 4, 1, 3)),
+                ('lrelu_1', nn.LeakyReLU(self.leakiness)),
+                ('conv_2', nn.Conv2d(512, 512, 3, 1, 1)),
+                ('lrelu_2', nn.LeakyReLU(self.leakiness)),
+            ])),
+        ])  # To add progressively upscaling blocks
 
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (512, 32, 32)
-            nn.Conv2d(512, 512, 3, 1, 1),
-            nn.LeakyReLU(),
-            nn.Conv2d(512, 512, 3, 1, 1),
-            nn.LeakyReLU(),
+        # Need to check the rules of pixel-wise normalization layer
 
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (512, 64, 64)
-            nn.Conv2d(512, 256, 3, 1, 1),  # (256, 64, 64)
-            nn.LeakyReLU(),
-            nn.Conv2d(256, 256, 3, 1, 1),
-            nn.LeakyReLU(),
-
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (256, 128, 128)
-            nn.Conv2d(256, 128, 3, 1, 1),  # (128, 128, 128)
-            nn.LeakyReLU(),
-            nn.Conv2d(128, 128, 3, 1, 1),
-            nn.LeakyReLU(),
-
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (128, 256, 256)
-            nn.Conv2d(128, 64, 3, 1, 1),  # (64, 256, 256)
-            nn.LeakyReLU(),
-            nn.Conv2d(64, 64, 3, 1, 1),
-            nn.LeakyReLU(),
-
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (64, 512, 512)
-            nn.Conv2d(64, 32, 3, 1, 1),  # (32, 512, 512)
-            nn.LeakyReLU(),
-            nn.Conv2d(32, 32, 3, 1, 1),
-            nn.LeakyReLU()
-        )
-
-        self.tail = nn.Sequential(
-            nn.Upsample(scale_factor=2, mode='nearest'),  # (32, 1024, 1024)
-            nn.Conv2d(32, 16, 3, 1, 1),  # (16, 1024, 1024)
-            nn.LeakyReLU(),
-            nn.Conv2d(16, 16, 3, 1, 1),
-            nn.LeakyReLU(),
-            nn.Conv2d(16, 3, 1, 1, 0)  # (3, 1024, 1024) ToRGB layer
-        )
-
-    def forward(
-        self,
-        x
-    ) -> torch.Tensor:
-        x = self.head(x)
-        x = self.body(x)
-        x = self.tail(x)
+    def forward(self, x) -> torch.Tensor:
         return x
+
+    def _get_toRGB(self, in_channels):
+        return nn.Sequential(
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=3,
+                kernel_size=1,
+                padding=0,
+            ),
+            # Pass nn.Linear layer
+        )
 
 
 class Discriminator(nn.Module):
@@ -94,7 +64,8 @@ class Discriminator(nn.Module):
         self.fromRGBs = {
             'to_512': self._get_fromRGB(out_channels=512)
         }
-        self.fade_in_weight = 1  # 1 means that no lower resolution is considerd.
+        # 1 means that no lower resolution is considerd.
+        self.fade_in_weight = 1
 
         self.conv_blocks = nn.ModuleList([
             nn.Sequential(OrderedDict([
@@ -117,7 +88,8 @@ class Discriminator(nn.Module):
         if self.fade_in_weight < 1:
             in_channels_to_fade_in = self._get_in_channels(x.size(-1) >> 1)
             residual_x = nn.AvgPool2d(2)(x)
-            residual_x = self.fromRGBs[f'to_{in_channels_to_fade_in}'](residual_x)
+            residual_x = self.fromRGBs[f'to_{in_channels_to_fade_in}'](
+                residual_x)
             residual_x = residual_x.mul(1-self.fade_in_weight)
 
         in_channels = self._get_in_channels(x.size(-1))
@@ -153,7 +125,8 @@ class Discriminator(nn.Module):
             out_channels = min(self.maximum_channel, in_channels << 1)
 
             if f'to_{in_channels}' not in self.fromRGBs.keys():
-                self.fromRGBs[f'to_{in_channels}'] = self._get_fromRGB(out_channels=in_channels)
+                self.fromRGBs[f'to_{in_channels}'] = self._get_fromRGB(
+                    out_channels=in_channels)
 
             new_conv_block = nn.Sequential(OrderedDict([
                 ('conv_1', nn.Conv2d(in_channels, in_channels, 3, 1, 1)),
