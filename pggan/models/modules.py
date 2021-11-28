@@ -96,12 +96,12 @@ class Discriminator(nn.Module):
         }
         self.fade_in_weight = 1  # 1 means that no lower resolution is considerd.
 
-        self.conv_blocks = torch.nn.ModuleList([
-            torch.nn.Sequential(OrderedDict([
-                ('conv_1', torch.nn.Conv2d(513, 512, 3, 1, 1)),
-                ('lrelu_1', torch.nn.LeakyReLU(self.leakiness)),
-                ('conv_2', torch.nn.Conv2d(512, 512, 4, 1, 0)),
-                ('lrelu_2', torch.nn.LeakyReLU(self.leakiness)),
+        self.conv_blocks = nn.ModuleList([
+            nn.Sequential(OrderedDict([
+                ('conv_1', nn.Conv2d(513, 512, 3, 1, 1)),
+                ('lrelu_1', nn.LeakyReLU(self.leakiness)),
+                ('conv_2', nn.Conv2d(512, 512, 4, 1, 0)),
+                ('lrelu_2', nn.LeakyReLU(self.leakiness)),
             ])),
         ])
 
@@ -115,8 +115,9 @@ class Discriminator(nn.Module):
     def forward(self, x) -> torch.Tensor:
 
         if self.fade_in_weight < 1:
-            residual_x = torch.nn.AvgPool2d(2)(x)
-            residual_x = self.fromRGBs[f'to_{x.size(-1) >> 1}'](residual_x)
+            in_channels_to_fade_in = self._get_in_channels(x.size(-1) >> 1)
+            residual_x = nn.AvgPool2d(2)(x)
+            residual_x = self.fromRGBs[f'to_{in_channels_to_fade_in}'](residual_x)
             residual_x = residual_x.mul(1-self.fade_in_weight)
 
         in_channels = self._get_in_channels(x.size(-1))
@@ -151,15 +152,15 @@ class Discriminator(nn.Module):
             in_channels = self._get_in_channels(image_size)
             out_channels = min(self.maximum_channel, in_channels << 1)
 
-            if in_channels not in self.fromRGBs.keys():
+            if f'to_{in_channels}' not in self.fromRGBs.keys():
                 self.fromRGBs[f'to_{in_channels}'] = self._get_fromRGB(out_channels=in_channels)
 
-            new_conv_block = torch.nn.Sequential(OrderedDict([
-                ('conv_1', torch.nn.Conv2d(in_channels, in_channels, 3, 1, 1)),
-                ('lrelu_1', torch.nn.LeakyReLU(self.leakiness)),
-                ('conv_2', torch.nn.Conv2d(in_channels, out_channels, 3, 1, 1)),
-                ('lrelu_2', torch.nn.LeakyReLU(self.leakiness)),
-                ('avg_pooling', torch.nn.AvgPool2d(2)),
+            new_conv_block = nn.Sequential(OrderedDict([
+                ('conv_1', nn.Conv2d(in_channels, in_channels, 3, 1, 1)),
+                ('lrelu_1', nn.LeakyReLU(self.leakiness)),
+                ('conv_2', nn.Conv2d(in_channels, out_channels, 3, 1, 1)),
+                ('lrelu_2', nn.LeakyReLU(self.leakiness)),
+                ('avg_pooling', nn.AvgPool2d(2)),
             ]))
 
             self.conv_blocks.insert(0, new_conv_block)

@@ -31,7 +31,7 @@ class TestDiscriminator(unittest.TestCase):
         self.assertEqual(result.size(2), H)
         self.assertEqual(result.size(3), W)
 
-    def test_discriminator_forward(self):
+    def test_forward_without_fade_in(self):
         with torch.no_grad():
             discriminator = Discriminator()
             input_image_sizes = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
@@ -53,10 +53,11 @@ class TestDiscriminator(unittest.TestCase):
                 set(channels)
             )
 
-    def test_discriminator_fade_in(self):
+    def test_forward_with_fade_in(self):
         with torch.no_grad():
             discriminator = Discriminator()
-            input_image_sizes = [8, 16]
+            discriminator.fade_in_weight = 0.5
+            input_image_sizes = [8, 16, 32, 64, 128, 256]
 
             for input_image_size in input_image_sizes:
 
