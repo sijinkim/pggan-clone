@@ -8,31 +8,29 @@ class Generator(nn.Module):
         self,
         leakiness: float = 0.2,
         maximum_channel: int = 512,
-        minimum_channel: int = 16,
     ) -> None:
         super(Generator, self).__init__()
 
         self.leakiness = leakiness
         self.maximum_channel = maximum_channel
-        self.minimum_channel = minimum_channel
         self.current_output_image_size = 4
 
         self.toRGBs = {
             'from_512': self._get_toRGB(in_channels=512),
         }
-        # 1 means that no lower resolution is considerd.
         self.fade_in_weight = 1
 
         self.conv_blocks = nn.ModuleList([
             nn.Sequential(OrderedDict([
-                ('conv_1', nn.Conv2d(512, 512, 4, 1, 3)),
+                ('conv_1', nn.Conv2d(512, 512, 4, 1, 3)),  # (512, 4, 4)
                 ('lrelu_1', nn.LeakyReLU(self.leakiness)),
-                ('conv_2', nn.Conv2d(512, 512, 3, 1, 1)),
+                ('conv_2', nn.Conv2d(512, 512, 3, 1, 1)),  # (512, 4, 4)
                 ('lrelu_2', nn.LeakyReLU(self.leakiness)),
             ])),
-        ])  # To add progressively upscaling blocks
+        ])  # default conv_blocks
 
         # Need to check the rules of pixel-wise normalization layer
+        # self.pixel_wise_norm
 
     def forward(self, x) -> torch.Tensor:
         return x
@@ -45,8 +43,40 @@ class Generator(nn.Module):
                 kernel_size=1,
                 padding=0,
             ),
-            # Pass nn.Linear layer
+            nn.Linear(
+                in_features=3,
+                out_features=3
+            ),
         )
+
+    def _get_out_channels(self, resolution):
+        return min(self.maximum_channel, 2**(15-(len(bin(resolution))-2)))
+
+    # e.g. (next block resolution) image_isze = 64
+    def set_output_image_size(self, image_size):
+        if image_size > self.current_output_image_size:
+            in_channels = min(self.maximum_channel,
+                              self._get_out_channels(image_size) << 1)
+            out_channels = self._get_out_channels(image_size)
+
+            if f'from_{out_channels}' not in self.toRGBs.keys():
+                self.toRGBs[f'from_{out_channels}'] = self._get_toRGB(
+                    in_channels=out_channels)
+
+            new_conv_block = nn.Sequential(OrderedDict([
+                ('upsample', nn.Upsample(scale_factor=2, mode='nearest')),
+                ('conv_1', nn.Conv2d(in_channels, out_channels, 3, 1, 1)),
+                ('lrelu_1', nn.LeakyReLU(self.leakiness)),
+                ('conv_2', nn.Conv2d(out_channels, out_channels, 3, 1, 1)),
+                ('lrelu_2', nn.LeakyReLU(self.leakiness))
+            ]))
+
+            self.conv_blocks.append(new_conv_block)
+        else:
+            pass
+
+    def PixelwizeNorm(self):
+        pass
 
 
 class Discriminator(nn.Module):
