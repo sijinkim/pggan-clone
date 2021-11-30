@@ -27,10 +27,9 @@ def train(args):
 
     device = torch.device('cuda') if args.gpu else torch.device('cpu')
 
-    # set checkpoint path
-    args.checkpoint_root = Path(args.checkpoint_root)
-    if not args.checkpoint_root.exists():
-        args.checkpoint_root.mkdir(parents=True, exist_ok=True)
+    # set output_root path
+    if not args.output_root.exists():
+        args.output_root.mkdir(parents=True, exist_ok=True)
 
     # Load Datasets
     if not args.data_root.joinpath('train').exists() or not args.data_root.joinpath('valid').exists():
@@ -130,19 +129,23 @@ def train(args):
         if validator.is_best_score(avg_valid_loss):
             state = trainer.get_state()
             state['epoch'] = epoch
-            torch.save(state, args.checkpoint_root.joinpath('best.pt'))
+            torch.save(state, args.output_root.joinpath('best.pt'))
 
-        if args.checkpoint_period % epoch == 0:
+        if epoch % args.checkpoint_period == 0:
             state = trainer.get_state()
             state['epoch'] = epoch
-            torch.save(state, args.checkpoint_root.joinpath(f'{epoch:04d}.pt'))
+            torch.save(state, args.output_root.joinpath(f'{epoch:04d}.pt'))
+
+    state = trainer.get_state()
+    state['epoch'] = args.epoch
+    torch.save(state, args.output_root.joinpath(f'{args.epoch:04d}.pt'))
 
 
 def inference(args):
     pass
 
 
-def main():
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ProgressiveGAN"
     )
@@ -153,12 +156,19 @@ def main():
     train_parser.add_argument('--epoch', type=int, required=True)
     train_parser.add_argument('--config_file', type=Path, default='./config_default.yml')
     train_parser.add_argument('--data_root', type=Path, required=True)
-    train_parser.add_argument('--checkpoint_root', type=Path)
-    train_parser.add_argument('--checkpoint_period', type=Path)
+    train_parser.add_argument(
+        '--output_root', type=Path,
+        help='Path to the directory the outputs are stored.')
+    train_parser.add_argument('--checkpoint_period', type=int)
     train_parser.add_argument('--checkpoint', type=Path)
 
     inference_parser = sub_parser.add_parser('inference')
     inference_parser.set_defaults(func=inference)
+    return parser
+
+
+def main():
+    parser = get_parser()
     args = parser.parse_args()
     args.func(args)
 
