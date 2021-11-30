@@ -33,15 +33,16 @@ def train(args):
         args.checkpoint_root.mkdir(parents=True, exist_ok=True)
 
     # Load Datasets
+    if not args.data_root.joinpath('train').exists() or not args.data_root.joinpath('valid').exists():
+        raise FileNotFoundError(f"'train' or 'valid' not found in {args.data_root}")
+
     train_dataset = CelebAHQ(
         data_root=args.data_root,
         split='train',
-        **hparams['dataset']['train'],
     )
     valid_dataset = CelebAHQ(
         data_root=args.data_root,
         split='valid',
-        **hparams['dataset']['valid'],
     )
     print(f'Dataset size:\n\tTrain: {len(train_dataset)}\n\tValid: {len(valid_dataset)}')
 
