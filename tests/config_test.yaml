@@ -1,0 +1,13 @@
+model:
+  discriminator:
+    leakiness: 0.2
+    maximum_channel: 512
+
+optimizer:
+  method: "Adam"
+  lr: 0.0001
+
+criterion:
+  method: "BCELoss"
+
+batch_size: 2

@@ -47,7 +47,6 @@ def train(args):
 
     # Load Models
     generator = Generator(
-        **hparams['model']['generator']
     )
     generator.to(device)
     discriminator = Discriminator(
@@ -69,8 +68,11 @@ def train(args):
         raise
 
     optimizer = optimizer(
-        params=[{"params": model.parameters() for model in []}],
-        ** hparams['optimizer']['kwargs']
+        params=[
+            {"params": model.parameters()
+             for model in [generator, discriminator]}
+        ],
+        lr=hparams["optimizer"]["lr"],
     )
     print('[Optimizer]')
     print(optimizer)
@@ -85,9 +87,7 @@ def train(args):
     except Exception:
         raise AttributeError
 
-    criterion = criterion(
-        ** hparams['criterion']['kwargs']
-    )
+    criterion = criterion()
     print('[Loss Function]')
     print(criterion)
 
@@ -161,6 +161,7 @@ def get_parser() -> argparse.ArgumentParser:
         help='Path to the directory the outputs are stored.')
     train_parser.add_argument('--checkpoint_period', type=int)
     train_parser.add_argument('--checkpoint', type=Path)
+    train_parser.add_argument('--gpu', action='store_true')
 
     inference_parser = sub_parser.add_parser('inference')
     inference_parser.set_defaults(func=inference)
