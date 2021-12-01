@@ -8,7 +8,7 @@ class TestCLI(unittest.TestCase):
         self.args = parser.parse_args([
             'train',
             '--epoch', '3',
-            '--config_file', './tests/configs/config_test.yaml',
+            '--config_file', './tests/config_test.yaml',
             '--data_root', './tests/data_root',
             '--output_root', './output_root',
             '--checkpoint_period', '1',
