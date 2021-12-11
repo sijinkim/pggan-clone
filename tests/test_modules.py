@@ -18,6 +18,21 @@ class TestGenerator(unittest.TestCase):
             print(generator._get_out_channels(res), ref)
             self.assertEqual(generator._get_out_channels(res), ref)
 
+    def test_forward_without_fade_in(self):
+        with torch.no_grad():
+            generator = Generator()
+            resolutions = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
+
+            B, C, H, W = 1, 512, 1, 1
+            x = torch.randn(B, C, H, W)
+
+            for res in resolutions:
+                generator.set_output_image_size(res)
+                print(f'resolution: {res} ', generator.conv_blocks)
+                result = generator(x)
+                self.assertEqual(
+                    result.shape, (B, generator._get_out_channels(res), res, res))
+
 
 class TestDiscriminator(unittest.TestCase):
     def test_minibatch_stddev_forward(self):

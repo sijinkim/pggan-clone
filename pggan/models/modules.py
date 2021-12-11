@@ -29,10 +29,9 @@ class Generator(nn.Module):
             ])),
         ])  # default conv_blocks
 
-        # Need to check the rules of pixel-wise normalization layer
-        # self.pixel_wise_norm
-
     def forward(self, x) -> torch.Tensor:
+        for m in self.conv_blocks:
+            x = m(x)
         return x
 
     def _get_toRGB(self, in_channels):
@@ -43,22 +42,18 @@ class Generator(nn.Module):
                 kernel_size=1,
                 padding=0,
             ),
-            nn.Linear(
-                in_features=3,
-                out_features=3
-            ),
         )
 
     def _get_out_channels(self, resolution):
         return min(self.maximum_channel, 2**(15-(len(bin(resolution))-2)))
 
-    # e.g. (next block resolution) image_isze = 64
     def set_output_image_size(self, image_size):
         if image_size > self.current_output_image_size:
             in_channels = min(self.maximum_channel,
                               self._get_out_channels(image_size) << 1)
             out_channels = self._get_out_channels(image_size)
 
+            # 특정 중간 레이어에서 rgb 아웃풋낼 수 있도록 모든 out_channels 사이즈에 맞춰서 toRGB 레이어 생성
             if f'from_{out_channels}' not in self.toRGBs.keys():
                 self.toRGBs[f'from_{out_channels}'] = self._get_toRGB(
                     in_channels=out_channels)
@@ -72,6 +67,7 @@ class Generator(nn.Module):
             ]))
 
             self.conv_blocks.append(new_conv_block)
+            self.current_output_image_size = image_size
         else:
             pass
 
