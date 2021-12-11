@@ -32,6 +32,9 @@ class Generator(nn.Module):
     def forward(self, x) -> torch.Tensor:
         for m in self.conv_blocks:
             x = m(x)
+
+        x = self.toRGBs[f'from_{self._get_out_channels(self.current_output_image_size)}'](
+            x)
         return x
 
     def _get_toRGB(self, in_channels):
