@@ -31,7 +31,7 @@ class TestGenerator(unittest.TestCase):
                 print(f'resolution: {res} ', generator.conv_blocks)
                 result = generator(x)
                 self.assertEqual(
-                    result.shape, (B, generator._get_out_channels(res), res, res))
+                    result.shape, (B, 3, res, res))
 
 
 class TestDiscriminator(unittest.TestCase):
