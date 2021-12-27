@@ -30,11 +30,26 @@ class Generator(nn.Module):
         ])  # default conv_blocks
 
     def forward(self, x) -> torch.Tensor:
-        for m in self.conv_blocks:
-            x = m(x)
+        fade_in_weight = self.fade_in_weight
 
-        x = self.toRGBs[f'from_{self._get_out_channels(self.current_output_image_size)}'](
-            x)
+        if len(self.conv_blocks) == 1:
+            fade_in_weight = 1
+        else:
+            for module in self.conv_blocks[:-1]:
+                x = module(x)
+
+        if fade_in_weight < 1:
+            residual_x = nn.Upsample(scale_factor=2, mode='nearest')(x)
+            residual_x = self.toRGBs[f'from_{self._get_out_channels(residual_x.size(-1) >> 1)}'](
+                residual_x)
+            residual_x = residual_x.mul(1-fade_in_weight)
+
+        x = self.conv_blocks[-1](x)
+        x = self.toRGBs[f'from_{self._get_out_channels(x.size(-1))}'](x)
+
+        if fade_in_weight < 1:
+            x = x.mul(fade_in_weight).add(residual_x)
+
         return x
 
     def _get_toRGB(self, in_channels):
