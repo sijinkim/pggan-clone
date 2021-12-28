@@ -15,7 +15,6 @@ class TestGenerator(unittest.TestCase):
         generator = Generator()
 
         for res, ref in zip(resolutions, ref_channels):
-            print(generator._get_out_channels(res), ref)
             self.assertEqual(generator._get_out_channels(res), ref)
 
     def test_forward_without_fade_in(self):
@@ -28,7 +27,21 @@ class TestGenerator(unittest.TestCase):
 
             for res in resolutions:
                 generator.set_output_image_size(res)
-                print(f'resolution: {res} ', generator.conv_blocks)
+                result = generator(x)
+                self.assertEqual(
+                    result.shape, (B, 3, res, res))
+
+    def test_forward_with_fade_in(self):
+        with torch.no_grad():
+            generator = Generator()
+            generator.fade_in_weight = 0.5
+            resolutions = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
+
+            B, C, H, W = 3, 512, 1, 1
+            x = torch.randn(B, C, H, W)
+
+            for res in resolutions:
+                generator.set_output_image_size(res)
                 result = generator(x)
                 self.assertEqual(
                     result.shape, (B, 3, res, res))
