@@ -90,8 +90,13 @@ class Generator(nn.Module):
         else:
             pass
 
-    def PixelwizeNorm(self):
-        pass
+
+class PixelwiseNorm(nn.Module):
+    def __init__(self) -> None:
+        super(PixelwiseNorm, self).__init__()
+
+    def forward(self, x) -> torch.Tensor:
+        return x * torch.rsqrt(torch.mean(x**2, dim=1, keepdim=True) + 1e-8)
 
 
 class Discriminator(nn.Module):
