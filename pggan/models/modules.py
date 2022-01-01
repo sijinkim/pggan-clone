@@ -19,13 +19,16 @@ class Generator(nn.Module):
             'from_512': self._get_toRGB(in_channels=512),
         }
         self.fade_in_weight = 1
+        self.pixel_norm = PixelwiseNorm()
 
         self.conv_blocks = nn.ModuleList([
             nn.Sequential(OrderedDict([
                 ('conv_1', nn.Conv2d(512, 512, 4, 1, 3)),  # (512, 4, 4)
                 ('lrelu_1', nn.LeakyReLU(self.leakiness)),
+                ('pnorm_1', self.pixel_norm),
                 ('conv_2', nn.Conv2d(512, 512, 3, 1, 1)),  # (512, 4, 4)
                 ('lrelu_2', nn.LeakyReLU(self.leakiness)),
+                ('pnorm_2', self.pixel_norm),
             ])),
         ])  # default conv_blocks
 
@@ -81,8 +84,10 @@ class Generator(nn.Module):
                 ('upsample', nn.Upsample(scale_factor=2, mode='nearest')),
                 ('conv_1', nn.Conv2d(in_channels, out_channels, 3, 1, 1)),
                 ('lrelu_1', nn.LeakyReLU(self.leakiness)),
+                ('pnorm_1', self.pixel_norm),
                 ('conv_2', nn.Conv2d(out_channels, out_channels, 3, 1, 1)),
-                ('lrelu_2', nn.LeakyReLU(self.leakiness))
+                ('lrelu_2', nn.LeakyReLU(self.leakiness)),
+                ('pnorm_2', self.pixel_norm),
             ]))
 
             self.conv_blocks.append(new_conv_block)
