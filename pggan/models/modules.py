@@ -8,6 +8,7 @@ class Generator(nn.Module):
         self,
         leakiness: float = 0.2,
         maximum_channel: int = 512,
+        pixel_wise_norm_method: str = 'L2',
     ) -> None:
         super(Generator, self).__init__()
 
@@ -19,7 +20,7 @@ class Generator(nn.Module):
             'from_512': self._get_toRGB(in_channels=512),
         }
         self.fade_in_weight = 1
-        self.pixel_norm = PixelwiseNorm()
+        self.pixel_norm = PixelwiseNorm(pixel_wise_norm_method)
 
         self.conv_blocks = nn.ModuleList([
             nn.Sequential(OrderedDict([
@@ -38,19 +39,16 @@ class Generator(nn.Module):
             x = module(x)
 
             if block_len == 1:
-                x = self.toRGBs[f'from_{self._get_out_channels(x.size(-1))}'](
-                    x)
+                x = self.toRGBs[f'from_{self._get_out_channels(x.size(-1))}'](x)
                 break
 
             if block_idx == block_len - 2 and self.fade_in_weight < 1:
                 residual_x = nn.Upsample(scale_factor=2, mode='nearest')(x)
-                residual_x = self.toRGBs[f'from_{self._get_out_channels(residual_x.size(-1) >> 1)}'](
-                    residual_x)
+                residual_x = self.toRGBs[f'from_{self._get_out_channels(residual_x.size(-1) >> 1)}'](residual_x)
                 residual_x = residual_x.mul(1-self.fade_in_weight)
 
             if block_idx == block_len - 1:
-                x = self.toRGBs[f'from_{self._get_out_channels(x.size(-1))}'](
-                    x)
+                x = self.toRGBs[f'from_{self._get_out_channels(x.size(-1))}'](x)
                 if self.fade_in_weight < 1:
                     x = x.mul(self.fade_in_weight).add(residual_x)
 
@@ -77,8 +75,7 @@ class Generator(nn.Module):
 
             # 특정 중간 레이어에서 rgb 아웃풋낼 수 있도록 모든 out_channels 사이즈에 맞춰서 toRGB 레이어 생성
             if f'from_{out_channels}' not in self.toRGBs.keys():
-                self.toRGBs[f'from_{out_channels}'] = self._get_toRGB(
-                    in_channels=out_channels)
+                self.toRGBs[f'from_{out_channels}'] = self._get_toRGB(in_channels=out_channels)
 
             new_conv_block = nn.Sequential(OrderedDict([
                 ('upsample', nn.Upsample(scale_factor=2, mode='nearest')),
@@ -97,11 +94,22 @@ class Generator(nn.Module):
 
 
 class PixelwiseNorm(nn.Module):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        method: str = 'L2'
+    ) -> None:
         super(PixelwiseNorm, self).__init__()
+        self.method = method
 
     def forward(self, x) -> torch.Tensor:
-        return x * torch.rsqrt(torch.mean(x**2, dim=1, keepdim=True) + 1e-8)
+        if self.method == 'L2':
+            order = 2
+        elif self.method == 'LC':
+            order = x.size(1)
+        else:
+            raise ValueError
+
+        return x.div(x.norm(order, dim=1, keepdim=True) + 1e-8)
 
 
 class Discriminator(nn.Module):
@@ -119,8 +127,7 @@ class Discriminator(nn.Module):
         self.fromRGBs = {
             'to_512': self._get_fromRGB(out_channels=512)
         }
-        # 1 means that no lower resolution is considerd.
-        self.fade_in_weight = 1
+        self.fade_in_weight = 1  # 1 means that no lower resolution is considerd.
 
         self.conv_blocks = nn.ModuleList([
             nn.Sequential(OrderedDict([
@@ -143,8 +150,7 @@ class Discriminator(nn.Module):
         if self.fade_in_weight < 1:
             in_channels_to_fade_in = self._get_in_channels(x.size(-1) >> 1)
             residual_x = nn.AvgPool2d(2)(x)
-            residual_x = self.fromRGBs[f'to_{in_channels_to_fade_in}'](
-                residual_x)
+            residual_x = self.fromRGBs[f'to_{in_channels_to_fade_in}'](residual_x)
             residual_x = residual_x.mul(1-self.fade_in_weight)
 
         in_channels = self._get_in_channels(x.size(-1))
@@ -180,8 +186,7 @@ class Discriminator(nn.Module):
             out_channels = min(self.maximum_channel, in_channels << 1)
 
             if f'to_{in_channels}' not in self.fromRGBs.keys():
-                self.fromRGBs[f'to_{in_channels}'] = self._get_fromRGB(
-                    out_channels=in_channels)
+                self.fromRGBs[f'to_{in_channels}'] = self._get_fromRGB(out_channels=in_channels)
 
             new_conv_block = nn.Sequential(OrderedDict([
                 ('conv_1', nn.Conv2d(in_channels, in_channels, 3, 1, 1)),
