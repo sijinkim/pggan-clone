@@ -6,6 +6,7 @@ import torch
 from pggan.models import Generator
 from pggan.models import Discriminator
 from pggan.models.modules import MinibatchStdDev
+from pggan.models.modules import PixelwiseNorm
 
 
 class TestGenerator(unittest.TestCase):
@@ -46,6 +47,22 @@ class TestGenerator(unittest.TestCase):
                 self.assertEqual(
                     result.shape, (B, 3, res, res))
 
+    def test_pixel_wise_norm_method(self):
+        with torch.no_grad():
+            generator = Generator()
+            generator.fade_in_weight = 0.2
+            generator.pixel_wise_norm_method = 'LC'
+            resolutions = [4, 8, 16, 32, 64]
+
+            B, C, H, W = 5, 512, 1, 1
+            x = torch.randn(B, C, H, W)
+
+            for res in resolutions:
+                generator.set_output_image_size(res)
+                result = generator(x)
+                self.assertEqual(
+                    result.shape, (B, 3, res, res))
+
 
 class TestDiscriminator(unittest.TestCase):
     def test_minibatch_stddev_forward(self):
@@ -77,8 +94,7 @@ class TestDiscriminator(unittest.TestCase):
 
             channels = [16, 32, 64, 128, 256, 512]
             self.assertSetEqual(
-                set([int(fromRGB_key.split('to_')[-1])
-                    for fromRGB_key in discriminator.fromRGBs.keys()]),
+                set([int(fromRGB_key.split('to_')[-1]) for fromRGB_key in discriminator.fromRGBs.keys()]),
                 set(channels)
             )
 
