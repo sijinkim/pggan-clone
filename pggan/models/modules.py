@@ -109,7 +109,7 @@ class PixelwiseNorm(nn.Module):
         else:
             raise ValueError
 
-        return x.div(x.norm(order, dim=1, keepdim=True) + 1e-8)
+        return x.div(x.pow(2).mean(dim=1, keepdim=True).add(1e-8).sqrt())
 
 
 class Discriminator(nn.Module):
