@@ -47,7 +47,7 @@ class TestGenerator(unittest.TestCase):
                 self.assertEqual(
                     result.shape, (B, 3, res, res))
 
-    def test_pixel_wise_norm_method(self):
+    def test_pixelwise_normalization_method(self):
         with torch.no_grad():
             generator = Generator()
             generator.fade_in_weight = 0.2
