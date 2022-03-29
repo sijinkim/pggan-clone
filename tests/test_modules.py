@@ -49,9 +49,10 @@ class TestGenerator(unittest.TestCase):
 
     def test_pixelwise_normalization_method(self):
         with torch.no_grad():
-            generator = Generator()
+            generator = Generator(
+                pixel_wise_norm_method = 'LC',
+            )
             generator.fade_in_weight = 0.2
-            generator.pixel_wise_norm_method = 'LC'
             resolutions = [4, 8, 16, 32, 64]
 
             B, C, H, W = 5, 512, 1, 1
